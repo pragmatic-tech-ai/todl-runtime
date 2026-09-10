@@ -1,4 +1,5 @@
 export { Observable, type PropertyChangeCallback } from './observable.js'
+export { Signal, type Disposable } from './signal.js'
 export {
     type IStorage,
     type StorageEntry,
