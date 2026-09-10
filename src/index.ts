@@ -7,3 +7,4 @@ export {
     compareStorageEntries,
 } from './storage/storage.js'
 export { FakeStorage } from './storage/fake-storage.js'
+export { copyTree } from './storage/copy-tree.js'
