@@ -6,3 +6,4 @@ export {
     isLocalFileAccess,
     compareStorageEntries,
 } from './storage/storage.js'
+export { FakeStorage } from './storage/fake-storage.js'
