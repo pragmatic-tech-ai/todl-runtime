@@ -39,4 +39,9 @@ export class Signal<T> {
   get hasSubscribers(): boolean {
     return this.handlers.size > 0;
   }
+
+  /** Number of currently-attached subscribers. Useful for leak assertions. */
+  get subscriberCount(): number {
+    return this.handlers.size;
+  }
 }

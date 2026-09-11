@@ -23,7 +23,7 @@ class Loc extends Observable {
 test('notifies by name on setter change', () => {
   const l = new Loc()
   const seen: Array<[string, unknown]> = []
-  l.AddPropertyChangedListener('label', (_o, name, _old, nv) => seen.push([name, nv]))
+  l.PropertyChanged('label').subscribe(({ property, newValue }) => seen.push([property, newValue]))
   l.label = 'Azure'
   assert.equal(l.label, 'Azure')
   assert.deepEqual(seen, [['label', 'Azure']])
@@ -32,26 +32,25 @@ test('notifies by name on setter change', () => {
 test('equal-value set fires nothing', () => {
   const l = new Loc()
   let fired = 0
-  l.AddPropertyChangedListener('label', () => {
+  l.PropertyChanged('label').subscribe(() => {
     fired++
   })
   l.label = ''
   assert.equal(fired, 0)
 })
 
-test('unsubscribed instance allocates no listener map', () => {
+test('unobserved instance allocates no signal map', () => {
   const l = new Loc()
-  assert.equal((l as unknown as { _listeners?: unknown })._listeners, undefined)
+  assert.equal((l as unknown as { _signals?: unknown })._signals, undefined)
 })
 
-test('RemovePropertyChangedListener stops delivery', () => {
+test('disposing a subscription stops delivery', () => {
   const l = new Loc()
   let fired = 0
-  const cb = (): void => {
+  const sub = l.PropertyChanged('label').subscribe(() => {
     fired++
-  }
-  l.AddPropertyChangedListener('label', cb)
-  l.RemovePropertyChangedListener('label', cb)
+  })
+  sub.dispose()
   l.label = 'x'
   assert.equal(fired, 0)
 })
