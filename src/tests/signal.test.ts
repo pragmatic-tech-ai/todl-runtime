@@ -65,3 +65,43 @@ test("hasSubscribers reflects live subscriptions", () => {
   subscription.dispose();
   assert.equal(signal.hasSubscribers, false);
 });
+
+test("lifecycle hooks fire only on 0->1 and 1->0 transitions", () => {
+  const events: string[] = [];
+  const signal = new Signal<void>({
+    onFirstSubscriber: () => events.push("first"),
+    onLastUnsubscribe: () => events.push("last"),
+  });
+
+  const a = signal.subscribe(() => {});
+  const b = signal.subscribe(() => {});
+  // Only the first subscriber trips onFirstSubscriber; the second is silent.
+  assert.deepEqual(events, ["first"]);
+
+  a.dispose();
+  // Still one subscriber left — no 1->0 transition yet.
+  assert.deepEqual(events, ["first"]);
+
+  b.dispose();
+  // Now empty — onLastUnsubscribe fires.
+  assert.deepEqual(events, ["first", "last"]);
+
+  // Re-subscribing after empty trips onFirstSubscriber again.
+  const c = signal.subscribe(() => {});
+  assert.deepEqual(events, ["first", "last", "first"]);
+  c.dispose();
+  assert.deepEqual(events, ["first", "last", "first", "last"]);
+});
+
+test("double-dispose does not re-fire onLastUnsubscribe", () => {
+  const events: string[] = [];
+  const signal = new Signal<void>({
+    onLastUnsubscribe: () => events.push("last"),
+  });
+
+  const sub = signal.subscribe(() => {});
+  sub.dispose();
+  sub.dispose(); // no-op — must not fire the hook a second time
+
+  assert.deepEqual(events, ["last"]);
+});

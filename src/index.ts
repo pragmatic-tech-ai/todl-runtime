@@ -1,5 +1,5 @@
 export { Observable, type PropertyChangedEventArgs } from './observable.js'
-export { Signal, type Disposable } from './signal.js'
+export { Signal, type Disposable, type SignalLifecycle } from './signal.js'
 export {
     type IStorage,
     type StorageEntry,
