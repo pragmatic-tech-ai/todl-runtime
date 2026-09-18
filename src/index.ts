@@ -12,6 +12,15 @@ export {
     compareStorageEntries,
 } from './storage/storage.js'
 export { FakeStorage } from './storage/fake-storage.js'
+// NodeFsStorage is Node-only (node:fs/promises); it lives in the `/node` subpath
+// entry (see ./node.ts), NOT this universal barrel — importing it here would pull
+// node:fs into browser bundles (Vite externalizes it to a stub, breaking the build).
+export {
+    ObservableCollection,
+    type CollectionChange,
+    type CollectionChangeListener,
+    type IReadOnlyObservableCollection,
+} from './collections/observable-collection.js'
 export { copyTree } from './storage/copy-tree.js'
 export {
     ServiceProvider,
