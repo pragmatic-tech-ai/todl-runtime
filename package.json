@@ -1,6 +1,6 @@
 {
   "name": "@pragmatic-tech-ai/todl-runtime",
-  "version": "0.5.4",
+  "version": "0.5.6",
   "license": "Apache-2.0",
   "description": "Runtime base for TODL-generated entities: a minimal name/setter INotifyPropertyChanged (Observable).",
   "type": "module",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
     }
   },
   "files": [
