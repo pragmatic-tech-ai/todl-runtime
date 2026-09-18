@@ -25,5 +25,5 @@ export {
 } from './services/service-provider.js'
 export { ServiceBase } from './services/service-base.js'
 export { HostKind } from './composition/host-kind.js'
-export type { IModule } from './composition/module.js'
+export { Module, type IModule } from './composition/module.js'
 export { CompositionRoot } from './composition/composition-root.js'
