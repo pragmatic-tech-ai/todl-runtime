@@ -10,14 +10,17 @@ const Web     = new HostKind('web');
 const Cli     = new HostKind('cli');
 
 // A minimal IModule that registers one instance under a ServiceKey.
-class FakeModule implements IModule {
+class FakeModule implements IModule
+{
     public readonly key: ServiceKey<{ id: string }>;
     private readonly _id: string;
-    constructor(public readonly Targets: ReadonlySet<HostKind>, id: string) {
+    constructor(public readonly Targets: ReadonlySet<HostKind>, id: string)
+    {
         this.key = new ServiceKey<{ id: string }>(id);
         this._id = id;
     }
-    RegisterServices(container: IServiceContainer): void {
+    RegisterServices(container: IServiceContainer): void
+    {
         container.register(this.key, () => ({ id: this._id }), ServiceLifetime.Singleton);
     }
 }

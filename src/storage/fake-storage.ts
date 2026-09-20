@@ -96,11 +96,13 @@ export class FakeStorage implements IStorage
             key === src ? dst
                 : key.startsWith(src + '/') ? dst + key.slice(src.length)
                     : undefined
-        for (const [key, value] of [...this.files]) {
+        for (const [key, value] of [...this.files])
+        {
             const next = rewrite(key)
             if (next !== undefined) { this.files.delete(key); this.files.set(next, value) }
         }
-        for (const key of [...this.dirs]) {
+        for (const key of [...this.dirs])
+        {
             const next = rewrite(key)
             if (next !== undefined) { this.dirs.delete(key); this.dirs.add(next) }
         }
@@ -112,7 +114,8 @@ export class FakeStorage implements IStorage
         const dir = normalize(path)
         const prefix = dir === '' ? '' : dir + '/'
         const children = new Map<string, boolean>()   // name → isDirectory
-        for (const key of this.files.keys()) {
+        for (const key of this.files.keys())
+        {
             if (!key.startsWith(prefix)) continue
             const rest = key.slice(prefix.length)
             if (rest === '') continue
@@ -120,7 +123,8 @@ export class FakeStorage implements IStorage
             if (slash === -1) children.set(rest, children.get(rest) ?? false)
             else children.set(rest.slice(0, slash), true)   // a folder always wins
         }
-        for (const d of this.dirs) {
+        for (const d of this.dirs)
+        {
             if (!d.startsWith(prefix)) continue
             const rest = d.slice(prefix.length)
             if (rest === '') continue

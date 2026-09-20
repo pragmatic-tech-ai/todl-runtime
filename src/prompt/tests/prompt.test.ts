@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 import { Ask, ConfirmAsk, PickFolderAsk, type IPromptService } from '../ask.js'
 
 // A canned prompt service: dispatch by request type, return typed answers.
-class FakePrompts implements IPromptService {
+class FakePrompts implements IPromptService
+{
     constructor(private readonly confirm: boolean, private readonly folder: string | undefined) {}
-    async Ask<R>(request: Ask<R>): Promise<R> {
+    async Ask<R>(request: Ask<R>): Promise<R>
+    {
         if (request instanceof ConfirmAsk) return this.confirm as R
         if (request instanceof PickFolderAsk) return this.folder as R
         throw new Error(`unhandled ${request.constructor.name}`)

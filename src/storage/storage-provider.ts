@@ -5,7 +5,8 @@ import { type IStorage } from './storage.js';
 // locally, a container id/URL remotely). todl-runtime owns IStorage (a *rooted*
 // store) but not the means to create one for a location; a host supplies this
 // (Plexus's StorageService already exposes CreateStorage and adopts the key).
-export interface IStorageProvider {
+export interface IStorageProvider
+{
     CreateStorage(location: string): IStorage;
 }
 

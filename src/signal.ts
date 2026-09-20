@@ -6,7 +6,8 @@
  */
 
 /** A cancellable subscription. Disposing it detaches the handler. */
-export interface Disposable {
+export interface Disposable
+{
   dispose(): void;
 }
 
@@ -19,13 +20,15 @@ export interface Disposable {
  * the lifetime of the property's listeners; see
  * `Mural/docs/setting-backed-dp-subscriptions.md`.)
  */
-export interface SignalLifecycle {
+export interface SignalLifecycle
+{
   onFirstSubscriber?: () => void;
   onLastUnsubscribe?: () => void;
 }
 
 /** A synchronous, multi-subscriber event carrier of payload `T`. */
-export class Signal<T> {
+export class Signal<T>
+{
   private readonly handlers = new Set<(value: T) => void>();
   private readonly onFirstSubscriber?: () => void;
   private readonly onLastUnsubscribe?: () => void;
@@ -34,13 +37,15 @@ export class Signal<T> {
    * @param lifecycle optional demand hooks (see {@link SignalLifecycle}). Omit for
    *   a plain event carrier — existing callers are unaffected.
    */
-  constructor(lifecycle?: SignalLifecycle) {
+  constructor(lifecycle?: SignalLifecycle)
+  {
     this.onFirstSubscriber = lifecycle?.onFirstSubscriber;
     this.onLastUnsubscribe = lifecycle?.onLastUnsubscribe;
   }
 
   /** Attach `handler`; the returned {@link Disposable} detaches it. */
-  subscribe(handler: (value: T) => void): Disposable {
+  subscribe(handler: (value: T) => void): Disposable
+  {
     const wasEmpty = this.handlers.size === 0;
     this.handlers.add(handler);
     // Fire the demand hook only on a genuine 0 → 1 transition (re-adding an
@@ -61,19 +66,23 @@ export class Signal<T> {
    * handler may subscribe or dispose during delivery without disrupting the
    * handlers already scheduled for this emission.
    */
-  emit(value: T): void {
-    for (const handler of [...this.handlers]) {
+  emit(value: T): void
+  {
+    for (const handler of [...this.handlers])
+    {
       handler(value);
     }
   }
 
   /** True while at least one subscriber is attached. */
-  get hasSubscribers(): boolean {
+  get hasSubscribers(): boolean
+  {
     return this.handlers.size > 0;
   }
 
   /** Number of currently-attached subscribers. Useful for leak assertions. */
-  get subscriberCount(): number {
+  get subscriberCount(): number
+  {
     return this.handlers.size;
   }
 }

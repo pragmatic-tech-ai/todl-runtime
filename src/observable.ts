@@ -4,7 +4,8 @@ import { Signal } from './signal.js'
 // when one exists (an Observable raising the change); it may be absent for
 // synthetic change events that no Observable owns. `property` is the changed
 // property's name; `oldValue`/`newValue` bracket the change.
-export interface PropertyChangedEventArgs {
+export interface PropertyChangedEventArgs
+{
   owner?: Observable
   property: string
   oldValue: unknown
@@ -22,7 +23,8 @@ export interface PropertyChangedEventArgs {
 // `PropertyChanged(name)`. Consumers `subscribe` to that Signal and own the
 // returned `Disposable` — there is no callback-registry API; the Signal IS the
 // change channel.
-export class Observable {
+export class Observable
+{
   // One change channel per property name; created on first `PropertyChanged`
   // access. An Observable that is never observed allocates nothing beyond its
   // fields.
@@ -31,10 +33,12 @@ export class Observable {
   // The change channel for `name`, created on first access. Subscribe to it to
   // observe changes; dispose the returned subscription to stop. Repeated calls
   // for the same name return the same Signal.
-  public PropertyChanged(name: string): Signal<PropertyChangedEventArgs> {
+  public PropertyChanged(name: string): Signal<PropertyChangedEventArgs>
+  {
     const signals = (this._signals ??= new Map())
     let signal = signals.get(name)
-    if (signal === undefined) {
+    if (signal === undefined)
+    {
       signal = new Signal<PropertyChangedEventArgs>()
       signals.set(name, signal)
     }
@@ -44,7 +48,8 @@ export class Observable {
   // Subclass setters call this AFTER writing the backing field, only on a real
   // change. Emits (owner=this, name, old, new) to the property's channel — a
   // no-op when nothing has ever subscribed (no Signal was created).
-  protected RaisePropertyChanged(name: string, oldValue: unknown, newValue: unknown): void {
+  protected RaisePropertyChanged(name: string, oldValue: unknown, newValue: unknown): void
+  {
     this._signals?.get(name)?.emit({ owner: this, property: name, oldValue, newValue })
   }
 }

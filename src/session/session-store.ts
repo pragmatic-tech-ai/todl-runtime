@@ -10,7 +10,8 @@ import { type Disposable } from '../signal.js';
 // store persists all registered bags to one session.json under the user folder
 // (debounced on change) and restores them at startup. Distinct from typed user
 // PREFERENCES (mural's ApplicationSettings) — this is transient session state.
-export interface ISessionStore {
+export interface ISessionStore
+{
     // Track a bag under `key`; if the store has already loaded, apply the restored
     // slice immediately. The returned Disposable captures the bag's final values,
     // detaches change listeners, and stops tracking it.
@@ -27,12 +28,14 @@ export const SessionStoreKey = new ServiceKey<ISessionStore>('SessionStore');
 // One aggregate document: registration key → { propertyName: value }.
 type SessionDocument = Record<string, Record<string, unknown>>;
 
-interface Tracked {
+interface Tracked
+{
     readonly bag: IPropertyBag;
     readonly subs: readonly Disposable[];
 }
 
-export class SessionStore extends ServiceBase implements ISessionStore {
+export class SessionStore extends ServiceBase implements ISessionStore
+{
     public static readonly Key = SessionStoreKey;
 
     private static readonly FileName = 'session.json';
@@ -45,18 +48,22 @@ export class SessionStore extends ServiceBase implements ISessionStore {
     private isLoaded = false;
     private saveTimer: ReturnType<typeof setTimeout> | undefined;
 
-    constructor(provider: IServiceProvider, debounceMs = 750) {
+    constructor(provider: IServiceProvider, debounceMs = 750)
+    {
         super(provider);
         this.debounceMs = debounceMs;
     }
 
-    public Register(key: string, bag: IPropertyBag): Disposable {
-        if (this.tracked.has(key)) {
+    public Register(key: string, bag: IPropertyBag): Disposable
+    {
+        if (this.tracked.has(key))
+        {
             throw new Error(`SessionStore: key '${key}' is already registered`);
         }
         // Subscribe to every property's change channel → schedule a save.
         const subs: Disposable[] = [];
-        for (const [name] of bag) {
+        for (const [name] of bag)
+        {
             subs.push(bag.Observe(name).subscribe(() => this.scheduleSave()));
         }
         this.tracked.set(key, { bag, subs });
@@ -64,14 +71,17 @@ export class SessionStore extends ServiceBase implements ISessionStore {
         return { dispose: () => this.unregister(key) };
     }
 
-    public async Restore(): Promise<void> {
+    public async Restore(): Promise<void>
+    {
         this.loaded = await this.load();
         this.isLoaded = true;
         for (const [key, t] of this.tracked) SessionStore.apply(t.bag, this.loaded[key]);
     }
 
-    public async Save(): Promise<void> {
-        if (this.saveTimer !== undefined) {
+    public async Save(): Promise<void>
+    {
+        if (this.saveTimer !== undefined)
+        {
             clearTimeout(this.saveTimer);
             this.saveTimer = undefined;
         }
@@ -81,8 +91,10 @@ export class SessionStore extends ServiceBase implements ISessionStore {
         await this.storage().WriteText(SessionStore.FileName, JSON.stringify(doc, null, 2));
     }
 
-    public override dispose(): void {
-        if (this.saveTimer !== undefined) {
+    public override dispose(): void
+    {
+        if (this.saveTimer !== undefined)
+        {
             clearTimeout(this.saveTimer);
             this.saveTimer = undefined;
         }
@@ -91,7 +103,8 @@ export class SessionStore extends ServiceBase implements ISessionStore {
         super.dispose();
     }
 
-    private unregister(key: string): void {
+    private unregister(key: string): void
+    {
         const t = this.tracked.get(key);
         if (t === undefined) return;
         // Capture the bag's final values so a temporary teardown does not lose them.
@@ -101,7 +114,8 @@ export class SessionStore extends ServiceBase implements ISessionStore {
         this.scheduleSave();
     }
 
-    private scheduleSave(): void {
+    private scheduleSave(): void
+    {
         if (this.saveTimer !== undefined) clearTimeout(this.saveTimer);
         this.saveTimer = setTimeout(() => {
             this.saveTimer = undefined;
@@ -109,33 +123,41 @@ export class SessionStore extends ServiceBase implements ISessionStore {
         }, this.debounceMs);
     }
 
-    private storage(): IStorage {
+    private storage(): IStorage
+    {
         const env = this.Provider.getRequired(EnvironmentKey);
         const provider = this.Provider.getRequired(StorageProviderKey);
         return provider.CreateStorage(env.UserDataDirectory);
     }
 
-    private async load(): Promise<SessionDocument> {
-        try {
+    private async load(): Promise<SessionDocument>
+    {
+        try
+        {
             const text = await this.storage().ReadText(SessionStore.FileName);
             const parsed: unknown = JSON.parse(text);
             return parsed !== null && typeof parsed === 'object' ? (parsed as SessionDocument) : {};
-        } catch {
+        }
+        catch
+        {
             return {};
         }
     }
 
-    private static capture(bag: IPropertyBag): Record<string, unknown> {
+    private static capture(bag: IPropertyBag): Record<string, unknown>
+    {
         const out: Record<string, unknown> = {};
         for (const [name] of bag) out[name] = bag.GetValue(name);
         return out;
     }
 
-    private static apply(bag: IPropertyBag, slice: Record<string, unknown> | undefined): void {
+    private static apply(bag: IPropertyBag, slice: Record<string, unknown> | undefined): void
+    {
         if (slice === undefined) return;
         const names = new Set<string>();
         for (const [name] of bag) names.add(name);
-        for (const [name, value] of Object.entries(slice)) {
+        for (const [name, value] of Object.entries(slice))
+        {
             if (!names.has(name) || bag.IsReadOnly(name)) continue;
             bag.SetValue(name, value);
         }

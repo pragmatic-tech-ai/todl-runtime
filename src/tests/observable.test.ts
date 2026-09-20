@@ -2,12 +2,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Observable } from '../index.js'
 
-class Loc extends Observable {
+class Loc extends Observable
+{
   #label = ''
-  get label(): string {
+  get label(): string
+  {
     return this.#label
   }
-  set label(v: string) {
+  set label(v: string)
+  {
     const o = this.#label
     if (o === v) return
     this.#label = v

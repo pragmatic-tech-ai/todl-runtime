@@ -9,7 +9,8 @@ import { SessionStore } from '../session-store.js';
 
 const USER_DIR = 'fake://userdata';
 
-function harness(): { provider: ServiceProvider; storage: FakeStorage } {
+function harness(): { provider: ServiceProvider; storage: FakeStorage }
+{
     const provider = new ServiceProvider();
     const storage = new FakeStorage(USER_DIR);
     provider.registerInstance(EnvironmentKey, {
@@ -24,10 +25,12 @@ function harness(): { provider: ServiceProvider; storage: FakeStorage } {
 function bagOf(
     values: Record<string, unknown>,
     readOnly: ReadonlySet<string> = new Set(),
-): MapPropertyBag {
+): MapPropertyBag
+{
     const store: Record<string, unknown> = { ...values };
     const accessors = new Map<string, PropertyAccessor>();
-    for (const name of Object.keys(store)) {
+    for (const name of Object.keys(store))
+    {
         accessors.set(
             name,
             readOnly.has(name)
@@ -47,7 +50,8 @@ function bagOf(
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-async function seed(storage: FakeStorage, doc: unknown): Promise<void> {
+async function seed(storage: FakeStorage, doc: unknown): Promise<void>
+{
     await storage.WriteText('session.json', JSON.stringify(doc));
 }
 

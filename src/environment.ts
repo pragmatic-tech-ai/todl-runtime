@@ -4,7 +4,8 @@ import { ServiceKey } from './services/service-provider.js';
 // an enum, not the raw string union, so consumers branch on a member
 // (`env.Platform === OperatingSystem.MacOS`). Anything outside the desktop trio
 // maps to Other.
-export enum OperatingSystem {
+export enum OperatingSystem
+{
     Windows = 'win32',
     MacOS = 'darwin',
     Linux = 'linux',
@@ -18,7 +19,8 @@ export enum OperatingSystem {
 // interface + EnvironmentKey rather than any concrete class, so code that needs
 // "where things live" stays host-agnostic. Every value is constant for the process
 // lifetime.
-export interface IEnvironment {
+export interface IEnvironment
+{
     // ── Directories ──
     readonly CurrentDirectory: string;
     readonly HomeDirectory: string;

@@ -7,7 +7,8 @@ import { NodeFsStorage } from '../node-fs-storage.js'
 import { compareStorageEntries, type StorageEntry } from '../storage.js'
 
 // A NodeFsStorage rooted at a fresh OS temp dir, cleaned up after the test.
-async function tempStorage(t: TestContext): Promise<NodeFsStorage> {
+async function tempStorage(t: TestContext): Promise<NodeFsStorage>
+{
     const dir = await mkdtemp(join(tmpdir(), 'todl-fs-'))
     t.after(() => rm(dir, { recursive: true, force: true }))
     return new NodeFsStorage(dir)
