@@ -46,10 +46,14 @@ export class FakeStorage implements IStorage
     }
 
     // Store bytes as a binary (latin1) string so the file registers for
-    // Exists/List/size; content round-trips losslessly through fromCharCode.
+    // Exists/List/size; content round-trips losslessly through fromCharCode. Built
+    // one char at a time rather than String.fromCharCode(...bytes) — spreading a large
+    // array (a real model.json copied through the bytes path) overflows the arg stack.
     public WriteBytes(path: string, bytes: Uint8Array): Promise<void>
     {
-        this.files.set(normalize(path), String.fromCharCode(...bytes))
+        let content = ""
+        for (const byte of bytes) content += String.fromCharCode(byte)
+        this.files.set(normalize(path), content)
         return Promise.resolve()
     }
 
