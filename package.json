@@ -36,5 +36,8 @@
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3"
   }
 }

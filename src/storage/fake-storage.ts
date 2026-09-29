@@ -1,4 +1,4 @@
-import type { IStorage, IStatStorage, FileStat, StorageEntry } from './storage.js'
+import type { IStorage, IStatStorage, IWatchableStorage, FileStat, FileChange, FileChangeKind, StorageEntry } from './storage.js'
 
 // FakeStorage — an in-memory IStorage for unit tests: a flat Map of
 // project-relative path → text content, with List() deriving a directory view
@@ -8,13 +8,15 @@ import type { IStorage, IStatStorage, FileStat, StorageEntry } from './storage.j
 //
 // It deliberately does NOT implement ILocalFileAccess — so it also exercises the
 // isLocalFileAccess feature-test path (a backend without OS access).
-export class FakeStorage implements IStorage, IStatStorage
+export class FakeStorage implements IStorage, IStatStorage, IWatchableStorage
 {
     public readonly Root: string
     private readonly files = new Map<string, string>()
     // Explicitly-created directories (so empty folders register for Exists/List,
     // which the file-prefix derivation alone can't represent).
     private readonly dirs = new Set<string>()
+    // Watch subscribers keyed by the watched folder (normalized path).
+    private readonly watchers = new Map<string, Set<(c: FileChange) => void>>()
     // Synthetic inode bookkeeping: a stable id per path, assigned on create,
     // carried across Rename, dropped on Delete. '' models an unsupported-FS/0 ino.
     private nextIno = 1
@@ -55,6 +57,25 @@ export class FakeStorage implements IStorage, IStatStorage
             Size: content?.length ?? 0,
             MtimeMs: 0,
         })
+    }
+
+    public Watch(path: string, sink: (c: FileChange) => void): () => void
+    {
+        const key = normalize(path)
+        const set = this.watchers.get(key) ?? new Set()
+        set.add(sink)
+        this.watchers.set(key, set)
+        return () => { set.delete(sink) }
+    }
+
+    // Test-only: fire a change for `path` to the watchers of its PARENT folder
+    // (a folder watches its direct children).
+    public EmitFileChange(path: string, kind: FileChangeKind, isDirectory: boolean): void
+    {
+        const key = normalize(path)
+        const set = this.watchers.get(parentOf(key))
+        if (set === undefined) return
+        for (const sink of [...set]) sink({ Kind: kind, Path: key, IsDirectory: isDirectory })
     }
 
     public ReadText(path: string): Promise<string>

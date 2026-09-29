@@ -99,3 +99,27 @@ export function isStatStorage(storage: IStorage): storage is IStorage & IStatSto
 {
     return typeof (storage as Partial<IStatStorage>).Stat === 'function'
 }
+
+export enum FileChangeKind { Added, Removed, Changed }
+
+// One raw file-system event a watchable backend reports.
+export interface FileChange
+{
+    readonly Kind:        FileChangeKind
+    readonly Path:        string   // project-relative POSIX path
+    readonly IsDirectory: boolean
+}
+
+// Optional capability: watch ONE directory level (non-recursive — a consumer
+// watches folders on demand). `sink` fires per raw fs event; correlating a
+// rename's Removed+Added pair is the consumer's job. Returns a disposer.
+export interface IWatchableStorage
+{
+    Watch(path: string, sink: (change: FileChange) => void): () => void
+}
+
+// Type guard: does this storage also offer directory watching?
+export function isWatchableStorage(storage: IStorage): storage is IStorage & IWatchableStorage
+{
+    return typeof (storage as Partial<IWatchableStorage>).Watch === 'function'
+}
