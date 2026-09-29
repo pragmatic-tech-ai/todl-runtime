@@ -17,6 +17,13 @@ export {
     type ILocalFileAccess,
     isLocalFileAccess,
     compareStorageEntries,
+    type FileStat,
+    type IStatStorage,
+    isStatStorage,
+    FileChangeKind,
+    type FileChange,
+    type IWatchableStorage,
+    isWatchableStorage,
 } from './storage/storage.js';
 export { FakeStorage } from './storage/fake-storage.js';
 // NodeFsStorage is Node-only (node:fs/promises); it lives in the `/node` subpath
