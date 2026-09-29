@@ -1,4 +1,4 @@
-import type { IStorage, StorageEntry } from './storage.js'
+import type { IStorage, IStatStorage, FileStat, StorageEntry } from './storage.js'
 
 // FakeStorage — an in-memory IStorage for unit tests: a flat Map of
 // project-relative path → text content, with List() deriving a directory view
@@ -8,17 +8,53 @@ import type { IStorage, StorageEntry } from './storage.js'
 //
 // It deliberately does NOT implement ILocalFileAccess — so it also exercises the
 // isLocalFileAccess feature-test path (a backend without OS access).
-export class FakeStorage implements IStorage
+export class FakeStorage implements IStorage, IStatStorage
 {
     public readonly Root: string
     private readonly files = new Map<string, string>()
     // Explicitly-created directories (so empty folders register for Exists/List,
     // which the file-prefix derivation alone can't represent).
     private readonly dirs = new Set<string>()
+    // Synthetic inode bookkeeping: a stable id per path, assigned on create,
+    // carried across Rename, dropped on Delete. '' models an unsupported-FS/0 ino.
+    private nextIno = 1
+    private readonly inos = new Map<string, string>()
 
     constructor(root = 'fake://project')
     {
         this.Root = root
+    }
+
+    // Return this path's synthetic ino, assigning one on first sight.
+    private inoFor(key: string): string
+    {
+        let v = this.inos.get(key)
+        if (v === undefined) { v = String(this.nextIno++); this.inos.set(key, v) }
+        return v
+    }
+
+    // Test-only: force an empty ino for a path (simulates a filesystem that gives none).
+    public SetInoUnavailable(path: string): void
+    {
+        this.inos.set(normalize(path), '')
+    }
+
+    public Stat(path: string): Promise<FileStat>
+    {
+        const key = normalize(path)
+        const content = this.files.get(key)
+        const prefix = key + '/'
+        const isDir = content === undefined
+            && (this.dirs.has(key)
+                || [...this.files.keys()].some((k) => k.startsWith(prefix))
+                || [...this.dirs].some((d) => d.startsWith(prefix)))
+        return Promise.resolve({
+            IsDirectory: isDir,
+            Ino: this.inoFor(key),
+            Dev: 'fake-dev',
+            Size: content?.length ?? 0,
+            MtimeMs: 0,
+        })
     }
 
     public ReadText(path: string): Promise<string>
@@ -41,7 +77,9 @@ export class FakeStorage implements IStorage
 
     public WriteText(path: string, content: string): Promise<void>
     {
-        this.files.set(normalize(path), content)
+        const key = normalize(path)
+        this.files.set(key, content)
+        this.inoFor(key)
         return Promise.resolve()
     }
 
@@ -53,7 +91,9 @@ export class FakeStorage implements IStorage
     {
         let content = ""
         for (const byte of bytes) content += String.fromCharCode(byte)
-        this.files.set(normalize(path), content)
+        const key = normalize(path)
+        this.files.set(key, content)
+        this.inoFor(key)
         return Promise.resolve()
     }
 
@@ -76,15 +116,18 @@ export class FakeStorage implements IStorage
         const key = normalize(path)
         this.files.delete(key)
         this.dirs.delete(key)
+        this.inos.delete(key)
         const prefix = key + '/'
         for (const k of [...this.files.keys()]) if (k.startsWith(prefix)) this.files.delete(k)
         for (const d of [...this.dirs]) if (d.startsWith(prefix)) this.dirs.delete(d)
+        for (const i of [...this.inos.keys()]) if (i.startsWith(prefix)) this.inos.delete(i)
         return Promise.resolve()
     }
 
     // Record the directory and each of its ancestors (recursive-mkdir semantics).
     public CreateDirectory(path: string): Promise<void>
     {
+        this.inoFor(normalize(path))
         let key = normalize(path)
         while (key !== '') { this.dirs.add(key); key = parentOf(key) }
         return Promise.resolve()
@@ -109,6 +152,12 @@ export class FakeStorage implements IStorage
         {
             const next = rewrite(key)
             if (next !== undefined) { this.dirs.delete(key); this.dirs.add(next) }
+        }
+        // Carry the synthetic ino across the move so a rename preserves file identity.
+        for (const [key, value] of [...this.inos])
+        {
+            const next = rewrite(key)
+            if (next !== undefined) { this.inos.delete(key); this.inos.set(next, value) }
         }
         return Promise.resolve()
     }

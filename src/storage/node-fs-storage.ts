@@ -1,12 +1,12 @@
 import { readFile, writeFile, mkdir, rm, rename, readdir, stat } from 'node:fs/promises'
 import { dirname, join, sep } from 'node:path'
-import type { IStorage, StorageEntry } from './storage.js'
+import type { IStorage, IStatStorage, FileStat, StorageEntry } from './storage.js'
 
 // NodeFsStorage — a headless, disk-backed IStorage over node:fs/promises, rooted at
 // an absolute OS folder. Every path is project-relative POSIX ('' addresses the root);
 // this backend joins it onto the root and translates separators. No Electron, so `todl`
 // can open/build solutions on a CLI/server/test with no host plumbing.
-export class NodeFsStorage implements IStorage
+export class NodeFsStorage implements IStorage, IStatStorage
 {
     public readonly Root: string
 
@@ -60,6 +60,18 @@ export class NodeFsStorage implements IStorage
         const dst = this.resolve(to)
         await mkdir(dirname(dst), { recursive: true })
         await rename(this.resolve(from), dst)
+    }
+
+    public async Stat(path: string): Promise<FileStat>
+    {
+        const s = await stat(this.resolve(path))
+        return {
+            IsDirectory: s.isDirectory(),
+            Ino: s.ino === 0 ? '' : String(s.ino),
+            Dev: s.dev === 0 ? '' : String(s.dev),
+            Size: s.size,
+            MtimeMs: s.mtimeMs,
+        }
     }
 
     public async List(path: string): Promise<readonly StorageEntry[]>

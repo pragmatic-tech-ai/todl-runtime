@@ -74,3 +74,28 @@ export function isLocalFileAccess(storage: IStorage): storage is IStorage & ILoc
 {
     return typeof (storage as Partial<ILocalFileAccess>).OpenExternal === 'function'
 }
+
+// File metadata a stat-capable backend surfaces. Ino/Dev are stringified so a
+// consumer can key on 'dev:ino' without number-precision worries; both are ''
+// when the platform gives no stable id (0 / unsupported filesystem).
+export interface FileStat
+{
+    readonly IsDirectory: boolean
+    readonly Ino:         string
+    readonly Dev:         string
+    readonly Size:        number
+    readonly MtimeMs:     number
+}
+
+// Optional capability: per-path metadata including a (best-effort) stable file id.
+// Consumers feature-test with isStatStorage before using it.
+export interface IStatStorage
+{
+    Stat(path: string): Promise<FileStat>
+}
+
+// Type guard: does this storage also offer per-path stat metadata?
+export function isStatStorage(storage: IStorage): storage is IStorage & IStatStorage
+{
+    return typeof (storage as Partial<IStatStorage>).Stat === 'function'
+}
