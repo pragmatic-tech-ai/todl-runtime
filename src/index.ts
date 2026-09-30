@@ -40,6 +40,7 @@ export { OperatingSystem, EnvironmentKey, type IEnvironment } from './environmen
 export { StorageProviderKey, type IStorageProvider } from './storage/storage-provider.js';
 export { type IPropertyBagStore } from './property-bags/property-bag-store.js';
 export { DurableApplicationStore, DurableApplicationStoreKey } from './property-bags/durable-application-store.js';
+export { TransientSessionStore, TransientSessionStoreKey } from './property-bags/transient-session-store.js';
 export {
     MapPropertyBag,
     type IPropertyBag,
