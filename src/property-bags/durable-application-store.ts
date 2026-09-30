@@ -5,28 +5,18 @@ import { StorageProviderKey } from '../storage/storage-provider.js';
 import { type IStorage } from '../storage/storage.js';
 import { type IPropertyBag } from '../property-bag.js';
 import { type Disposable } from '../signal.js';
+import { type IPropertyBagStore } from './property-bag-store.js';
 
-// The session-store contract: any service registers a keyed IPropertyBag; the
-// store persists all registered bags to one session.json under the user folder
-// (debounced on change) and restores them at startup. Distinct from typed user
-// PREFERENCES (mural's ApplicationSettings) — this is transient session state.
-export interface ISessionStore
-{
-    // Track a bag under `key`; if the store has already loaded, apply the restored
-    // slice immediately. The returned Disposable captures the bag's final values,
-    // detaches change listeners, and stops tracking it.
-    Register(key: string, bag: IPropertyBag): Disposable;
-    // Load session.json once (tolerating missing/corrupt → empty) and apply each
-    // key's slice to every currently-registered bag.
-    Restore(): Promise<void>;
-    // Flush now: write the merged document. The host also calls this on exit.
-    Save(): Promise<void>;
-}
-
-export const SessionStoreKey = new ServiceKey<ISessionStore>('SessionStore');
+// A DURABLE store of property bags: any service registers a keyed IPropertyBag; the
+// store persists all registered bags to one application-bags.json under the user folder
+// (debounced on change) and restores them at startup, so their values survive across
+// sessions. This is durable application data (connections, defaults, the last-active
+// solution, persisted view state) — distinct from transient per-run state, which lives
+// in TransientSessionStore behind the same IPropertyBagStore interface.
+export const DurableApplicationStoreKey = new ServiceKey<IPropertyBagStore>('DurableApplicationStore');
 
 // One aggregate document: registration key → { propertyName: value }.
-type SessionDocument = Record<string, Record<string, unknown>>;
+type BagDocument = Record<string, Record<string, unknown>>;
 
 interface Tracked
 {
@@ -34,17 +24,17 @@ interface Tracked
     readonly subs: readonly Disposable[];
 }
 
-export class SessionStore extends ServiceBase implements ISessionStore
+export class DurableApplicationStore extends ServiceBase implements IPropertyBagStore
 {
-    public static readonly Key = SessionStoreKey;
+    public static readonly Key = DurableApplicationStoreKey;
 
-    private static readonly FileName = 'session.json';
+    private static readonly FileName = 'application-bags.json';
 
     private readonly debounceMs: number;
     private readonly tracked = new Map<string, Tracked>();
     // The last document read from disk, merged with live captures on save. Keys not
     // currently registered are preserved verbatim.
-    private loaded: SessionDocument = {};
+    private loaded: BagDocument = {};
     private isLoaded = false;
     private saveTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -58,7 +48,7 @@ export class SessionStore extends ServiceBase implements ISessionStore
     {
         if (this.tracked.has(key))
         {
-            throw new Error(`SessionStore: key '${key}' is already registered`);
+            throw new Error(`DurableApplicationStore: key '${key}' is already registered`);
         }
         // Subscribe to every property's change channel → schedule a save.
         const subs: Disposable[] = [];
@@ -67,7 +57,7 @@ export class SessionStore extends ServiceBase implements ISessionStore
             subs.push(bag.Observe(name).subscribe(() => this.scheduleSave()));
         }
         this.tracked.set(key, { bag, subs });
-        if (this.isLoaded) SessionStore.apply(bag, this.loaded[key]);
+        if (this.isLoaded) DurableApplicationStore.apply(bag, this.loaded[key]);
         return { dispose: () => this.unregister(key) };
     }
 
@@ -75,7 +65,7 @@ export class SessionStore extends ServiceBase implements ISessionStore
     {
         this.loaded = await this.load();
         this.isLoaded = true;
-        for (const [key, t] of this.tracked) SessionStore.apply(t.bag, this.loaded[key]);
+        for (const [key, t] of this.tracked) DurableApplicationStore.apply(t.bag, this.loaded[key]);
     }
 
     public async Save(): Promise<void>
@@ -85,10 +75,10 @@ export class SessionStore extends ServiceBase implements ISessionStore
             clearTimeout(this.saveTimer);
             this.saveTimer = undefined;
         }
-        const doc: SessionDocument = { ...this.loaded };
-        for (const [key, t] of this.tracked) doc[key] = SessionStore.capture(t.bag);
+        const doc: BagDocument = { ...this.loaded };
+        for (const [key, t] of this.tracked) doc[key] = DurableApplicationStore.capture(t.bag);
         this.loaded = doc;
-        await this.storage().WriteText(SessionStore.FileName, JSON.stringify(doc, null, 2));
+        await this.storage().WriteText(DurableApplicationStore.FileName, JSON.stringify(doc, null, 2));
     }
 
     public override dispose(): void
@@ -108,7 +98,7 @@ export class SessionStore extends ServiceBase implements ISessionStore
         const t = this.tracked.get(key);
         if (t === undefined) return;
         // Capture the bag's final values so a temporary teardown does not lose them.
-        this.loaded = { ...this.loaded, [key]: SessionStore.capture(t.bag) };
+        this.loaded = { ...this.loaded, [key]: DurableApplicationStore.capture(t.bag) };
         for (const s of t.subs) s.dispose();
         this.tracked.delete(key);
         this.scheduleSave();
@@ -130,13 +120,13 @@ export class SessionStore extends ServiceBase implements ISessionStore
         return provider.CreateStorage(env.UserDataDirectory);
     }
 
-    private async load(): Promise<SessionDocument>
+    private async load(): Promise<BagDocument>
     {
         try
         {
-            const text = await this.storage().ReadText(SessionStore.FileName);
+            const text = await this.storage().ReadText(DurableApplicationStore.FileName);
             const parsed: unknown = JSON.parse(text);
-            return parsed !== null && typeof parsed === 'object' ? (parsed as SessionDocument) : {};
+            return parsed !== null && typeof parsed === 'object' ? (parsed as BagDocument) : {};
         }
         catch
         {

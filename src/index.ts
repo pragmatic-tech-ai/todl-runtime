@@ -38,7 +38,8 @@ export {
 export { copyTree } from './storage/copy-tree.js';
 export { OperatingSystem, EnvironmentKey, type IEnvironment } from './environment.js';
 export { StorageProviderKey, type IStorageProvider } from './storage/storage-provider.js';
-export { SessionStore, SessionStoreKey, type ISessionStore } from './session/session-store.js';
+export { type IPropertyBagStore } from './property-bags/property-bag-store.js';
+export { DurableApplicationStore, DurableApplicationStoreKey } from './property-bags/durable-application-store.js';
 export {
     MapPropertyBag,
     type IPropertyBag,
