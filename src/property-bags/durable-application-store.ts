@@ -4,7 +4,7 @@ import { EnvironmentKey } from '../environment.js';
 import { StorageProviderKey } from '../storage/storage-provider.js';
 import { type IStorage } from '../storage/storage.js';
 import { type IPropertyBag } from '../property-bag.js';
-import { type Disposable } from '../signal.js';
+import { Disposable, type IDisposable } from '../signal.js';
 import { type IPropertyBagStore } from './property-bag-store.js';
 
 // A DURABLE store of property bags: any service registers a keyed IPropertyBag; the
@@ -21,7 +21,7 @@ type BagDocument = Record<string, Record<string, unknown>>;
 interface Tracked
 {
     readonly bag: IPropertyBag;
-    readonly subs: readonly Disposable[];
+    readonly subs: readonly IDisposable[];
 }
 
 export class DurableApplicationStore extends ServiceBase implements IPropertyBagStore
@@ -44,21 +44,21 @@ export class DurableApplicationStore extends ServiceBase implements IPropertyBag
         this.debounceMs = debounceMs;
     }
 
-    public Register(key: string, bag: IPropertyBag): Disposable
+    public Register(key: string, bag: IPropertyBag): IDisposable
     {
         if (this.tracked.has(key))
         {
             throw new Error(`DurableApplicationStore: key '${key}' is already registered`);
         }
         // Subscribe to every property's change channel → schedule a save.
-        const subs: Disposable[] = [];
+        const subs: IDisposable[] = [];
         for (const [name] of bag)
         {
             subs.push(bag.Observe(name).subscribe(() => this.scheduleSave()));
         }
         this.tracked.set(key, { bag, subs });
         if (this.isLoaded) DurableApplicationStore.apply(bag, this.loaded[key]);
-        return { dispose: () => this.unregister(key) };
+        return new Disposable(() => this.unregister(key));
     }
 
     public async Restore(): Promise<void>

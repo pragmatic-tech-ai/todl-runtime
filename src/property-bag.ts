@@ -1,17 +1,17 @@
-import { Signal, type Disposable } from './signal.js';
+import { Signal, type IDisposable } from './signal.js';
 import { type PropertyChangedEventArgs } from './observable.js';
 
 /**
  * A named collection of properties. Iterating a bag yields `[name, accessor]`
  * entries for every property it holds; `Observe` hands back a property's change
- * `Signal` (the caller subscribes and disposes the returned `Disposable`).
- * `Disposable`: `dispose()` releases any listeners the bag wired on external sources.
+ * `Signal` (the caller subscribes and disposes the returned `IDisposable`).
+ * `IDisposable`: `dispose()` releases any listeners the bag wired on external sources.
  *
  * This is the DP-free base abstraction (it depends only on todl-runtime's
  * Signal / PropertyChangedEventArgs). The reflective bag over mural dependency
  * properties (`DpPropertyBag`) lives in mural, which owns the DP system.
  */
-export interface IPropertyBag extends Iterable<[string, IReadOnlyPropertyAccessor]>, Disposable
+export interface IPropertyBag extends Iterable<[string, IReadOnlyPropertyAccessor]>, IDisposable
 {
     GetValue(name: string): unknown;
     SetValue(name: string, value: unknown): void;

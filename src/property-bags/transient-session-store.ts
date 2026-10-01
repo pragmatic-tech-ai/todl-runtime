@@ -1,7 +1,7 @@
 import { ServiceBase } from '../services/service-base.js';
 import { ServiceKey } from '../services/service-provider.js';
 import { type IPropertyBag } from '../property-bag.js';
-import { type Disposable } from '../signal.js';
+import { Disposable, type IDisposable } from '../signal.js';
 import { type IPropertyBagStore } from './property-bag-store.js';
 
 // A TRANSIENT store of property bags: it tracks registered bags for the run but never
@@ -16,14 +16,14 @@ export class TransientSessionStore extends ServiceBase implements IPropertyBagSt
 
     private readonly tracked = new Map<string, IPropertyBag>();
 
-    public Register(key: string, bag: IPropertyBag): Disposable
+    public Register(key: string, bag: IPropertyBag): IDisposable
     {
         if (this.tracked.has(key))
         {
             throw new Error(`TransientSessionStore: key '${key}' is already registered`);
         }
         this.tracked.set(key, bag);
-        return { dispose: () => { this.tracked.delete(key); } };
+        return new Disposable(() => { this.tracked.delete(key); });
     }
 
     // Nothing is persisted: a fresh run starts empty.

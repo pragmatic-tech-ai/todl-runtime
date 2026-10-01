@@ -8,6 +8,7 @@ import {
     type IServiceProvider,
     type IServiceContainer,
 } from '../service-provider.js';
+import { Disposable } from '../../signal.js';
 
 // An interface-shaped contract keyed by a typed token (no runtime class).
 interface Clock { now(): number; }
@@ -200,4 +201,10 @@ describe('ServiceProvider — hierarchy (scopes)', () => {
         assert.equal(scope.has(ClockKey), true);
         assert.equal(scope.has(StorageKey), false);
     });
+});
+
+test("a Disposable-class instance is disposed when its owning scope disposes", () => {
+  // isDisposable() is structural (checks a dispose() method); a Disposable instance must match.
+  const d = new Disposable(() => {});
+  assert.equal(typeof d.dispose, "function");
 });

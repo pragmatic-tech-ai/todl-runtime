@@ -21,7 +21,7 @@ export interface PropertyChangedEventArgs
 // Notification rides the runtime's one subscribe/emit primitive: each property
 // exposes a lazily-created `Signal<PropertyChangedEventArgs>` via
 // `PropertyChanged(name)`. Consumers `subscribe` to that Signal and own the
-// returned `Disposable` — there is no callback-registry API; the Signal IS the
+// returned `IDisposable` — there is no callback-registry API; the Signal IS the
 // change channel.
 export class Observable
 {

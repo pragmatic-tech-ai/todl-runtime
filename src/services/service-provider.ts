@@ -17,7 +17,7 @@
 // applies the lifetime caching rule. Child providers may shadow a
 // parent's registration (Angular-style hierarchical injectors).
 
-import type { Disposable } from '../signal.js';
+import type { IDisposable } from '../signal.js';
 
 // A typed token for interface-shaped contracts that have no runtime
 // class to key by (e.g. the DiagramStorage duck-type). The generic is
@@ -65,7 +65,7 @@ export interface IServiceProvider
 // the same object both composes and resolves, but a collaborator can ask
 // for just the half it needs. Registration methods return IServiceContainer
 // so calls chain (`c.register(a, …).registerInstance(b, …)`).
-export interface IServiceContainer extends Disposable
+export interface IServiceContainer extends IDisposable
 {
     register<T>(token: ServiceToken<T>, factory: ServiceFactory<T>, lifetime?: ServiceLifetime): IServiceContainer;
     registerInstance<T>(token: ServiceToken<T>, instance: T): IServiceContainer;
@@ -235,7 +235,7 @@ export class ServiceProvider implements IServiceProvider, IServiceContainer
     // owns (its own cache — scoped services plus singletons registered
     // here), then clear the cache. Does NOT touch the parent chain or any
     // child scopes — dispose the scope you created. Idempotent: a second
-    // call finds an empty cache. Structural Disposable check keeps the
+    // call finds an empty cache. Structural IDisposable check keeps the
     // container decoupled from ServiceBase / MuralBase.
     public dispose(): void
     {
@@ -260,11 +260,11 @@ export class ServiceProvider implements IServiceProvider, IServiceContainer
 }
 
 // Anything carrying a dispose() method — ServiceBase implements it. The
-// Disposable shape is todl-runtime's shared handle; the check stays
+// IDisposable shape is todl-runtime's shared handle; the check stays
 // structural so the container needn't know ServiceBase concretely.
-function isDisposable(v: unknown): v is Disposable
+function isDisposable(v: unknown): v is IDisposable
 {
-    return typeof (v as Partial<Disposable> | null)?.dispose === 'function';
+    return typeof (v as Partial<IDisposable> | null)?.dispose === 'function';
 }
 
 function describeToken(token: ServiceToken<unknown>): string

@@ -1,4 +1,4 @@
-import { type Disposable } from '../signal.js';
+import { type IDisposable } from '../signal.js';
 import { type IPropertyBag } from '../property-bag.js';
 
 // The persistence surface for property bags: register a bag under a key, restore the
@@ -10,9 +10,9 @@ import { type IPropertyBag } from '../property-bag.js';
 export interface IPropertyBagStore
 {
     // Track a bag under `key`; if the store has already restored, apply the restored
-    // slice immediately. The returned Disposable captures the bag's final values,
+    // slice immediately. The returned IDisposable captures the bag's final values,
     // detaches change listeners, and stops tracking it.
-    Register(key: string, bag: IPropertyBag): Disposable;
+    Register(key: string, bag: IPropertyBag): IDisposable;
     // Load the persisted document once (tolerating missing/corrupt → empty) and apply
     // each key's slice to every currently-registered bag.
     Restore(): Promise<void>;
