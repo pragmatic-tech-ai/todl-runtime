@@ -1,7 +1,28 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ServiceProvider, FakeStorage, MapPropertyBag, EnvironmentKey, StorageProviderKey, type PropertyAccessor } from '../../index.js'
+import { ServiceProvider, FakeStorage, MapPropertyBag, EnvironmentKey, StorageProviderKey, OperatingSystem, type IEnvironment, type PropertyAccessor } from '../../index.js'
 import { DurableApplicationStore } from '../durable-application-store.js'
+
+// A minimal IEnvironment stand-in: only UserDataDirectory matters to this store,
+// but the interface is fully required, so every other field gets an inert default.
+const FakeEnvironment: IEnvironment = {
+    CurrentDirectory: '/data',
+    HomeDirectory: '/data',
+    TempDirectory: '/data',
+    UserDataDirectory: '/data',
+    DocumentsDirectory: '/data',
+    DownloadsDirectory: '/data',
+    Platform: OperatingSystem.Linux,
+    Architecture: 'x64',
+    PathSeparator: '/',
+    IsWindows: false,
+    AppVersion: '0.0.0',
+    ElectronVersion: '',
+    ChromeVersion: '',
+    NodeVersion: '',
+    IsDevelopment: true,
+    IsPackaged: false,
+}
 
 function bagOf(seed: Record<string, unknown>): { bag: MapPropertyBag; values: Record<string, unknown> }
 {
@@ -17,7 +38,7 @@ function bagOf(seed: Record<string, unknown>): { bag: MapPropertyBag; values: Re
 function providerWith(storage: FakeStorage): ServiceProvider
 {
     const p = new ServiceProvider()
-    p.registerInstance(EnvironmentKey, { UserDataDirectory: '/data' })
+    p.registerInstance(EnvironmentKey, FakeEnvironment)
     p.registerInstance(StorageProviderKey, { CreateStorage: () => storage })
     return p
 }
