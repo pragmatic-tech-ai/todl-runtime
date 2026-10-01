@@ -5,10 +5,74 @@
  * without either depending on the other's machinery.
  */
 
-/** A cancellable subscription. Disposing it detaches the handler. */
-export interface Disposable
+/** A cancellable teardown handle. Disposing it releases whatever it holds. */
+export interface IDisposable
 {
   dispose(): void;
+}
+
+/**
+ * A concrete {@link IDisposable} that wraps an optional cleanup lambda. `dispose()`
+ * runs the cleanup at most once; a no-arg instance and {@link Disposable.None} are
+ * no-ops. Prefer this over returning a bare `{ dispose }` object or a `() => void`.
+ */
+export class Disposable implements IDisposable
+{
+  private cleanup?: () => void;
+  private isDisposed = false;
+
+  constructor(cleanup?: () => void)
+  {
+    this.cleanup = cleanup;
+  }
+
+  dispose(): void
+  {
+    if (this.isDisposed)
+    {
+      return;
+    }
+    this.isDisposed = true;
+    const run = this.cleanup;
+    this.cleanup = undefined;
+    run?.();
+  }
+
+  static readonly None: IDisposable = new Disposable();
+}
+
+/**
+ * Aggregates several {@link IDisposable}s into one. `dispose()` releases every child
+ * once, in reverse order; a child added after disposal is disposed immediately.
+ */
+export class CompositeDisposable implements IDisposable
+{
+  private readonly children: IDisposable[] = [];
+  private isDisposed = false;
+
+  add(child: IDisposable): void
+  {
+    if (this.isDisposed)
+    {
+      child.dispose();
+      return;
+    }
+    this.children.push(child);
+  }
+
+  dispose(): void
+  {
+    if (this.isDisposed)
+    {
+      return;
+    }
+    this.isDisposed = true;
+    for (let i = this.children.length - 1; i >= 0; i--)
+    {
+      this.children[i].dispose();
+    }
+    this.children.length = 0;
+  }
 }
 
 /**
@@ -43,22 +107,21 @@ export class Signal<T>
     this.onLastUnsubscribe = lifecycle?.onLastUnsubscribe;
   }
 
-  /** Attach `handler`; the returned {@link Disposable} detaches it. */
-  subscribe(handler: (value: T) => void): Disposable
+  /** Attach `handler`; the returned {@link IDisposable} detaches it. */
+  subscribe(handler: (value: T) => void): IDisposable
   {
     const wasEmpty = this.handlers.size === 0;
     this.handlers.add(handler);
     // Fire the demand hook only on a genuine 0 → 1 transition (re-adding an
     // already-present handler is a no-op the Set dedupes, so `wasEmpty` guards it).
     if (wasEmpty && this.handlers.size > 0) this.onFirstSubscriber?.();
-    return {
-      dispose: () => {
-        // Only a real removal that empties the set trips the 1 → 0 hook; a
-        // double-dispose deletes nothing and must stay silent.
-        const removed = this.handlers.delete(handler);
-        if (removed && this.handlers.size === 0) this.onLastUnsubscribe?.();
-      },
-    };
+    return new Disposable(() =>
+    {
+      // Only a real removal that empties the set trips the 1 → 0 hook; a
+      // double-dispose deletes nothing and must stay silent.
+      const removed = this.handlers.delete(handler);
+      if (removed && this.handlers.size === 0) this.onLastUnsubscribe?.();
+    });
   }
 
   /**
