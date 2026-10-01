@@ -115,8 +115,7 @@ export class Signal<T>
     // Fire the demand hook only on a genuine 0 → 1 transition (re-adding an
     // already-present handler is a no-op the Set dedupes, so `wasEmpty` guards it).
     if (wasEmpty && this.handlers.size > 0) this.onFirstSubscriber?.();
-    return new Disposable(() =>
-    {
+    return new Disposable(() => {
       // Only a real removal that empties the set trips the 1 → 0 hook; a
       // double-dispose deletes nothing and must stay silent.
       const removed = this.handlers.delete(handler);

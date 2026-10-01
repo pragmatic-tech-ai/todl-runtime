@@ -76,7 +76,7 @@ export interface IServiceContainer extends IDisposable
     // provider (resolve). The concrete return is a ServiceProvider, so a
     // caller holding the class keeps both halves.
     createScope(): IServiceContainer;
-    // dispose() (inherited from Disposable) tears down THIS scope: dispose()
+    // dispose() (inherited from IDisposable) tears down THIS scope: dispose()
     // every instance it owns, then clear. See ServiceProvider.dispose.
 }
 

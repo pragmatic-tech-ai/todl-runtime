@@ -203,8 +203,20 @@ describe('ServiceProvider — hierarchy (scopes)', () => {
     });
 });
 
-test("a Disposable-class instance is disposed when its owning scope disposes", () => {
-  // isDisposable() is structural (checks a dispose() method); a Disposable instance must match.
-  const d = new Disposable(() => {});
-  assert.equal(typeof d.dispose, "function");
+test('a Disposable-class instance is disposed when its owning scope disposes', () => {
+    // isDisposable() is structural (checks a dispose() method); a resolved
+    // Disposable instance must be recognised and torn down when the scope
+    // that cached it disposes — not merely shaped like one.
+    const DisposableKey = new ServiceKey<Disposable>('DisposableThing');
+    let disposed = false;
+
+    const root = new ServiceProvider();
+    root.registerScoped(DisposableKey, () => new Disposable(() => { disposed = true; }));
+
+    const scope = root.createScope();
+    scope.getRequired(DisposableKey); // resolve + cache the instance in the scope
+    assert.equal(disposed, false, 'not disposed before the scope tears down');
+
+    scope.dispose();
+    assert.equal(disposed, true, 'scope.dispose() ran the cached Disposable\'s cleanup');
 });
