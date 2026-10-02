@@ -220,3 +220,25 @@ test('a Disposable-class instance is disposed when its owning scope disposes', (
     scope.dispose();
     assert.equal(disposed, true, 'scope.dispose() ran the cached Disposable\'s cleanup');
 });
+
+test('registerInstance after a resolve replaces the cached instance', () =>
+{
+    const key = new ServiceKey<{ id: number }>('Thing');
+    const provider = new ServiceProvider();
+    provider.registerInstance(key, { id: 1 });
+    assert.equal(provider.getRequired(key).id, 1); // resolve → caches {id:1}
+    provider.registerInstance(key, { id: 2 });      // re-register under the resolved token
+    assert.equal(provider.getRequired(key).id, 2); // must see the new instance, not the stale cache
+});
+
+test('re-registering at a parent does not disturb a child scope cache', () =>
+{
+    const key = new ServiceKey<{ id: number }>('Scoped');
+    const parent = new ServiceProvider();
+    parent.registerInstance(key, { id: 1 });
+    const child = parent.createScope();
+    assert.equal(child.getRequired(key).id, 1);
+    parent.registerInstance(key, { id: 2 });
+    assert.equal(parent.getRequired(key).id, 2); // parent sees new
+    assert.equal(child.getRequired(key).id, 2);  // child re-resolves from parent owner (no stale child copy of a parent singleton)
+});

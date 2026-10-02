@@ -117,6 +117,10 @@ export class ServiceProvider implements IServiceProvider, IServiceContainer
         lifetime:  ServiceLifetime = ServiceLifetime.Singleton,
     ): this
     {
+        // Re-registration supersedes any instance cached here under this
+        // token (e.g. a test swapping a fake in after a resolve); without
+        // the eviction get() would keep returning the stale cached value.
+        this._cache.delete(token);
         this._registrations.set(token, { lifetime, factory: factory as ServiceFactory<unknown> });
         return this;
     }
