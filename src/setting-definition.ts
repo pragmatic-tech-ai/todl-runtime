@@ -6,7 +6,7 @@
 // enum-literal resolution both key off this exact member set.
 
 import { Observable } from './observable.js';
-import { ObservableCollection } from './collections/observable-collection.js';
+import type { ObservableCollection } from './collections/observable-collection.js';
 
 export enum SettingKind
 {
