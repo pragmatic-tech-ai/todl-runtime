@@ -120,6 +120,13 @@ export class ServiceProvider implements IServiceProvider, IServiceContainer
         // Re-registration supersedes any instance cached here under this
         // token (e.g. a test swapping a fake in after a resolve); without
         // the eviction get() would keep returning the stale cached value.
+        // The container owns cached instances (dispose() tears them down at
+        // scope teardown), so an evicted Disposable is disposed now —
+        // otherwise replacing a resolved service would silently leak it.
+        // (Re-registering the identical instance you still intend to use is
+        // a misuse; the evicted copy is disposed either way.)
+        const evicted = this._cache.get(token);
+        if (isDisposable(evicted)) evicted.dispose();
         this._cache.delete(token);
         this._registrations.set(token, { lifetime, factory: factory as ServiceFactory<unknown> });
         return this;

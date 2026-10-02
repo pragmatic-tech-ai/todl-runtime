@@ -231,7 +231,7 @@ test('registerInstance after a resolve replaces the cached instance', () =>
     assert.equal(provider.getRequired(key).id, 2); // must see the new instance, not the stale cache
 });
 
-test('re-registering at a parent does not disturb a child scope cache', () =>
+test('a child without its own registration observes a parent re-registration', () =>
 {
     const key = new ServiceKey<{ id: number }>('Scoped');
     const parent = new ServiceProvider();
@@ -241,4 +241,15 @@ test('re-registering at a parent does not disturb a child scope cache', () =>
     parent.registerInstance(key, { id: 2 });
     assert.equal(parent.getRequired(key).id, 2); // parent sees new
     assert.equal(child.getRequired(key).id, 2);  // child re-resolves from parent owner (no stale child copy of a parent singleton)
+});
+
+test('re-registering a resolved Disposable singleton disposes the evicted instance', () =>
+{
+    const key = new ServiceKey<Disposable>('Evictable');
+    let disposed = false;
+    const provider = new ServiceProvider();
+    provider.registerInstance(key, new Disposable(() => { disposed = true; }));
+    provider.getRequired(key); // resolve + cache the instance
+    provider.registerInstance(key, new Disposable(() => { })); // replace it
+    assert.equal(disposed, true, 're-registration disposed the instance it evicted from the cache');
 });
