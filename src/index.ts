@@ -1,4 +1,5 @@
 export { Observable, type PropertyChangedEventArgs } from './observable.js';
+export { SettingDefinition, SettingKind } from './setting-definition.js';
 export { Signal, Disposable, CompositeDisposable, type IDisposable, type SignalLifecycle } from './signal.js';
 export {
     Ask,
