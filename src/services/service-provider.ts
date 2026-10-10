@@ -71,6 +71,9 @@ export interface IServiceContainer extends IDisposable
     registerInstance<T>(token: ServiceToken<T>, instance: T): IServiceContainer;
     registerScoped<T>(token: ServiceToken<T>, factory: ServiceFactory<T>): IServiceContainer;
     registerTransient<T>(token: ServiceToken<T>, factory: ServiceFactory<T>): IServiceContainer;
+    // Remove THIS scope's registration (and disposing its cached instance) for
+    // the token; returns whether a registration was present. Parent untouched.
+    unregister<T>(token: ServiceToken<T>): boolean;
     addInstance<T extends object>(instance: T): IServiceContainer;
     // A child scope — itself a full container (register scoped overrides) and
     // provider (resolve). The concrete return is a ServiceProvider, so a
@@ -125,11 +128,30 @@ export class ServiceProvider implements IServiceProvider, IServiceContainer
         // otherwise replacing a resolved service would silently leak it.
         // (Re-registering the identical instance you still intend to use is
         // a misuse; the evicted copy is disposed either way.)
+        this.evictCached(token);
+        this._registrations.set(token, { lifetime, factory: factory as ServiceFactory<unknown> });
+        return this;
+    }
+
+    // Remove this provider's own registration for a token, evicting and
+    // disposing any instance cached here (same eviction as re-register).
+    // Never touches the parent chain. Returns whether a registration was
+    // present — used to roll back a failed module's registrations.
+    public unregister<T>(token: ServiceToken<T>): boolean
+    {
+        const had = this._registrations.has(token);
+        this.evictCached(token);
+        this._registrations.delete(token);
+        return had;
+    }
+
+    // Drop (and dispose, if disposable) the instance this provider caches
+    // under the token. Shared by register (supersede) and unregister.
+    private evictCached(token: object): void
+    {
         const evicted = this._cache.get(token);
         if (isDisposable(evicted)) evicted.dispose();
         this._cache.delete(token);
-        this._registrations.set(token, { lifetime, factory: factory as ServiceFactory<unknown> });
-        return this;
     }
 
     // Register an already-built instance (eager singleton). The same
