@@ -2,7 +2,9 @@ import { ServiceProvider, type ServiceToken } from "../services/service-provider
 import type { HostKind } from "./host-kind.js";
 import type { ILazyModule } from "./lazy-module.js";
 import type { ModuleManifest } from "./module-manifest.js";
-import { ModuleState, ModuleStateProperty } from "./module-state.js";
+import { ModuleState, ModuleStateKind, ModuleStateProperty } from "./module-state.js";
+import { ActivationContext } from "./activation-context.js";
+import { RootError } from "./root-error.js";
 import { CompositionError } from "./composition-error.js";
 
 interface ModuleCandidate
@@ -136,7 +138,12 @@ export class CompositionRootBuilder
 
 export class LazyCompositionRoot
 {
-    // entries/indexById/ownerByToken/services are consumed by the activation phase (next task).
+    private static readonly RequiredFailedTemplate = "required module {0} failed: {1}";
+    private static readonly NotProvidedTemplate = "module {0} did not provide declared service {1}";
+    private static readonly UndeclaredTemplate = "module {0} provided undeclared service {1}";
+
+    private readonly inFlight = new Set<number>();
+
     /** @internal Use LazyCompositionRoot.Builder(); constructed only by CompositionRootBuilder. */
     public constructor(
         private readonly entries: ModuleEntry[],
@@ -172,5 +179,144 @@ export class LazyCompositionRoot
     public Services(): ServiceProvider
     {
         return this.services;
+    }
+
+    public async Start(): Promise<readonly RootError[]>
+    {
+        const failures: RootError[] = [];
+        for (let i = 0; i < this.entries.length; i++)
+        {
+            if (!this.entries[i].manifest.OnStartup)
+            {
+                continue;
+            }
+
+            try
+            {
+                await this.activateIndex(i);
+            }
+            catch (e)
+            {
+                failures.push(e as RootError);
+            }
+        }
+
+        return failures;
+    }
+
+    public async Activate(id: string): Promise<void>
+    {
+        const index = this.indexById.get(id);
+        if (index === undefined)
+        {
+            throw RootError.UnknownModule(id);
+        }
+
+        await this.activateIndex(index);
+    }
+
+    public async Resolve<T>(token: ServiceToken<T>): Promise<T>
+    {
+        const ownerId = this.ownerByToken.get(token as ServiceToken<unknown>);
+        const present = this.services.has(token);
+        if (ownerId === undefined && !present)
+        {
+            throw RootError.UnknownService(String(token));
+        }
+
+        if (ownerId !== undefined && !present)
+        {
+            await this.activateIndex(this.indexById.get(ownerId)!);
+        }
+
+        return this.services.getRequired(token);
+    }
+
+    private async activateIndex(index: number): Promise<void>
+    {
+        const entry = this.entries[index];
+        const state = entry.state.Get();
+        const id = entry.manifest.Id;
+        switch (state.Kind)
+        {
+            case ModuleStateKind.Active:
+                return;
+            case ModuleStateKind.Failed:
+                throw RootError.ModuleFailed(id, state.Reason ?? "");
+            case ModuleStateKind.Activating:
+                throw RootError.ActivationCycle(id);
+            default:
+                break;
+        }
+
+        if (this.inFlight.has(index))
+        {
+            throw RootError.ActivationCycle(id);
+        }
+
+        this.inFlight.add(index);
+        entry.state.Set(ModuleState.Activating());
+        let context: ActivationContext | undefined;
+        try
+        {
+            for (const requirement of entry.manifest.Requires)
+            {
+                const req = this.indexById.get(requirement)!;
+                try
+                {
+                    await this.activateIndex(req);
+                }
+                catch (e)
+                {
+                    throw new Error(LazyCompositionRoot.RequiredFailedTemplate
+                        .replace("{0}", requirement).replace("{1}", (e as Error).message));
+                }
+            }
+
+            context = new ActivationContext(id, this.services);
+            await entry.module.Activate(context);
+            this.verifyDelivery(entry, context);
+            entry.state.Set(ModuleState.Active());
+        }
+        catch (error)
+        {
+            if (context !== undefined)
+            {
+                for (const token of context.ProvidedServices())
+                {
+                    this.services.unregister(token);
+                }
+            }
+
+            const reason = (error as Error).message;
+            entry.state.Set(ModuleState.Failed(reason));
+            throw RootError.ModuleFailed(id, reason);
+        }
+        finally
+        {
+            this.inFlight.delete(index);
+        }
+    }
+
+    private verifyDelivery(entry: ModuleEntry, context: ActivationContext): void
+    {
+        const id = entry.manifest.Id;
+        const declared = new Set<ServiceToken<unknown>>(entry.manifest.Provides);
+        const provided = new Set<ServiceToken<unknown>>(context.ProvidedServices());
+        for (const token of declared)
+        {
+            if (!this.services.has(token))
+            {
+                throw new Error(LazyCompositionRoot.NotProvidedTemplate.replace("{0}", id).replace("{1}", String(token)));
+            }
+        }
+
+        for (const token of provided)
+        {
+            if (!declared.has(token))
+            {
+                throw new Error(LazyCompositionRoot.UndeclaredTemplate.replace("{0}", id).replace("{1}", String(token)));
+            }
+        }
     }
 }
