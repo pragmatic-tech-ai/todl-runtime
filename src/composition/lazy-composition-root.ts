@@ -142,7 +142,7 @@ export class LazyCompositionRoot
     private static readonly NotProvidedTemplate = "module {0} did not provide declared service {1}";
     private static readonly UndeclaredTemplate = "module {0} provided undeclared service {1}";
 
-    private readonly inFlight = new Set<number>();
+    private readonly activating = new Map<number, Promise<void>>();
 
     /** @internal Use LazyCompositionRoot.Builder(); constructed only by CompositionRootBuilder. */
     public constructor(
@@ -232,30 +232,47 @@ export class LazyCompositionRoot
         return this.services.getRequired(token);
     }
 
+    // Concurrent callers of the same dormant module await ONE shared in-flight activation.
+    // True requirement cycles are rejected at build time (topo sort) and ActivationContext.Resolve
+    // never activates, so runtime re-entry of the same index cannot occur: awaiting the in-flight
+    // promise cannot self-deadlock. RootError.ActivationCycle is therefore a defensive guard only.
     private async activateIndex(index: number): Promise<void>
     {
         const entry = this.entries[index];
         const state = entry.state.Get();
-        const id = entry.manifest.Id;
-        switch (state.Kind)
+        if (state.Kind === ModuleStateKind.Active)
         {
-            case ModuleStateKind.Active:
-                return;
-            case ModuleStateKind.Failed:
-                throw RootError.ModuleFailed(id, state.Reason ?? "");
-            case ModuleStateKind.Activating:
-                throw RootError.ActivationCycle(id);
-            default:
-                break;
+            return;
         }
 
-        if (this.inFlight.has(index))
+        if (state.Kind === ModuleStateKind.Failed)
         {
-            throw RootError.ActivationCycle(id);
+            throw RootError.ModuleFailed(entry.manifest.Id, state.Reason ?? "");
         }
 
-        this.inFlight.add(index);
+        const inFlight = this.activating.get(index);
+        if (inFlight !== undefined)
+        {
+            return inFlight;
+        }
+
         entry.state.Set(ModuleState.Activating());
+        const promise = this.runActivation(index);
+        this.activating.set(index, promise);
+        try
+        {
+            await promise;
+        }
+        finally
+        {
+            this.activating.delete(index);
+        }
+    }
+
+    private async runActivation(index: number): Promise<void>
+    {
+        const entry = this.entries[index];
+        const id = entry.manifest.Id;
         let context: ActivationContext | undefined;
         try
         {
@@ -268,8 +285,9 @@ export class LazyCompositionRoot
                 }
                 catch (e)
                 {
+                    const inner = this.entries[req].state.Get().Reason ?? (e as Error).message;
                     throw new Error(LazyCompositionRoot.RequiredFailedTemplate
-                        .replace("{0}", requirement).replace("{1}", (e as Error).message));
+                        .replace("{0}", requirement).replace("{1}", inner));
                 }
             }
 
@@ -292,10 +310,6 @@ export class LazyCompositionRoot
             entry.state.Set(ModuleState.Failed(reason));
             throw RootError.ModuleFailed(id, reason);
         }
-        finally
-        {
-            this.inFlight.delete(index);
-        }
     }
 
     private verifyDelivery(entry: ModuleEntry, context: ActivationContext): void
@@ -305,7 +319,7 @@ export class LazyCompositionRoot
         const provided = new Set<ServiceToken<unknown>>(context.ProvidedServices());
         for (const token of declared)
         {
-            if (!this.services.has(token))
+            if (!provided.has(token))
             {
                 throw new Error(LazyCompositionRoot.NotProvidedTemplate.replace("{0}", id).replace("{1}", String(token)));
             }

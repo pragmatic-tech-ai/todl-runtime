@@ -84,3 +84,93 @@ test("Resolve of an unprovided service throws UnknownService", async () =>
     const root = LazyCompositionRoot.Builder(HostKinds.Headless).Build();
     await assert.rejects(() => root.Resolve(new ServiceKey<object>("Nope")), /unknown service/i);
 });
+
+const Lonely = new ServiceKey<object>("Lonely");
+const Shared = new ServiceKey<object>("Shared");
+const Dependent = new ServiceKey<object>("Dependent");
+
+class FailingRequirement implements ILazyModule
+{
+    public Manifest(): ModuleManifest { return ModuleManifest.For("bad").WithService(Lonely); }
+    public async Activate(): Promise<void> { throw new Error("bad-boom"); }
+}
+
+class NeedsBad implements ILazyModule
+{
+    public Manifest(): ModuleManifest { return ModuleManifest.For("needs").WithRequirement("bad").WithService(Dependent); }
+    public async Activate(context: ActivationContext): Promise<void> { context.ProvideInstance(Dependent, {}); }
+}
+
+class StartupBad implements ILazyModule
+{
+    public Manifest(): ModuleManifest { return ModuleManifest.For("sbad").ActivatedOnStartup(); }
+    public async Activate(): Promise<void> { throw new Error("startup-boom"); }
+}
+
+class NoDeliver implements ILazyModule
+{
+    public Manifest(): ModuleManifest { return ModuleManifest.For("nodeliver").WithService(Lonely); }
+    public async Activate(): Promise<void> {}
+}
+
+class CountingModule implements ILazyModule
+{
+    public count = 0;
+    public Manifest(): ModuleManifest { return ModuleManifest.For("counting").WithService(Shared); }
+    public async Activate(context: ActivationContext): Promise<void>
+    {
+        this.count++;
+        await new Promise(r => setTimeout(r, 10));
+        context.ProvideInstance(Shared, {});
+    }
+}
+
+test("Activate of an unknown module throws UnknownModule", async () =>
+{
+    const root = LazyCompositionRoot.Builder(HostKinds.Headless).Build();
+    await assert.rejects(() => root.Activate("ghost"), /unknown module/i);
+});
+
+test("a failing requirement fails the dependent and propagates once", async () =>
+{
+    const root = LazyCompositionRoot.Builder(HostKinds.Headless).Module(new FailingRequirement()).Module(new NeedsBad()).Build();
+    await assert.rejects(() => root.Activate("needs"), (e: Error) =>
+        /required module bad failed: bad-boom/.test(e.message) && (e.message.match(/failed/g) ?? []).length === 2);
+    assert.equal(root.StateOf("needs")!.Get().Kind, ModuleStateKind.Failed);
+    assert.equal(root.StateOf("bad")!.Get().Kind, ModuleStateKind.Failed);
+});
+
+test("Start collects a failure while a sibling on-startup module still activates", async () =>
+{
+    const audit = new AuditModule();
+    const root = LazyCompositionRoot.Builder(HostKinds.Headless).Module(new StartupBad()).Module(audit).Build();
+    const failures = await root.Start();
+    assert.equal(failures.length, 1);
+    assert.match(failures[0].message, /startup-boom/);
+    assert.equal(audit.activated, true);
+});
+
+test("a declared-but-undelivered service fails activation even if the host registered it", async () =>
+{
+    const root = LazyCompositionRoot.Builder(HostKinds.Headless).Module(new NoDeliver()).Build();
+    root.Services().registerInstance(Lonely, {});
+    await assert.rejects(() => root.Activate("nodeliver"), /did not provide/);
+    assert.equal(root.StateOf("nodeliver")!.Get().Kind, ModuleStateKind.Failed);
+});
+
+test("re-activating a Failed module throws ModuleFailed", async () =>
+{
+    const root = LazyCompositionRoot.Builder(HostKinds.Headless).Module(new BrokenModule()).Build();
+    await assert.rejects(() => root.Activate("broken"));
+    await assert.rejects(() => root.Activate("broken"), /failed/i);
+});
+
+test("concurrent Resolves share a single activation", async () =>
+{
+    const counting = new CountingModule();
+    const root = LazyCompositionRoot.Builder(HostKinds.Headless).Module(counting).Build();
+    const [a, b] = await Promise.all([root.Resolve(Shared), root.Resolve(Shared)]);
+    assert.equal(a, b);
+    assert.equal(counting.count, 1);
+    assert.equal(root.StateOf("counting")!.Get().Kind, ModuleStateKind.Active);
+});
