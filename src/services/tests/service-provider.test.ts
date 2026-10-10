@@ -253,3 +253,26 @@ test('re-registering a resolved Disposable singleton disposes the evicted instan
     provider.registerInstance(key, new Disposable(() => { })); // replace it
     assert.equal(disposed, true, 're-registration disposed the instance it evicted from the cache');
 });
+
+test('unregister removes a registration and reports presence', () =>
+{
+    const provider = new ServiceProvider();
+    const key = new ServiceKey<{ id: string }>('Widget');
+    provider.registerInstance(key, { id: 'w1' });
+    assert.equal(provider.has(key), true);
+    assert.equal(provider.unregister(key), true);
+    assert.equal(provider.has(key), false);
+    assert.equal(provider.get(key), undefined);
+    assert.equal(provider.unregister(key), false);
+});
+
+test('unregister disposes a cached disposable instance', () =>
+{
+    const provider = new ServiceProvider();
+    const key = new ServiceKey<{ dispose(): void; disposed: boolean }>('Res');
+    const instance = { disposed: false, dispose(): void { this.disposed = true; } };
+    provider.registerInstance(key, instance);
+    provider.getRequired(key);
+    provider.unregister(key);
+    assert.equal(instance.disposed, true);
+});
