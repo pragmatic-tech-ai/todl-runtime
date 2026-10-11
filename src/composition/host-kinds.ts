@@ -6,4 +6,5 @@ export class HostKinds
     public static readonly Desktop = new HostKind("desktop");
     public static readonly Headless = new HostKind("headless");
     public static readonly Web = new HostKind("web");
+    public static readonly Server = new HostKind("server");
 }
